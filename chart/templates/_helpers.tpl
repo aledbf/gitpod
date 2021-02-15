@@ -275,7 +275,7 @@ registry.{{ .Values.hostname }}
 {{- $ := .root -}}
 {{- $gp := .gp -}}
 {{- $comp := .comp -}}
-{{- $comp.version | default $gp.version -}}
+{{- required "please specify the Gitpod version to use in your values.yaml" ($comp.version | default $gp.version) -}}
 {{- end -}}
 
 {{- define "gitpod.comp.imageRepo" -}}
