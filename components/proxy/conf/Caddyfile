@@ -28,7 +28,7 @@
 		# disable clients from sniffing the media type
 		X-Content-Type-Options     nosniff
 		# Define valid parents that may embed a page
-		Content-Security-Policy    frame-ancestors 'self' https://*.{$GITPOD_DOMAIN} https://{$GITPOD_DOMAIN}
+		Content-Security-Policy    "frame-ancestors self https://*.{$GITPOD_DOMAIN} https://{$GITPOD_DOMAIN}"
 		# keep referrer data off of HTTP connections
 		Referrer-Policy            no-referrer-when-downgrade
 		# Enable cross-site filter (XSS) and tell browser to block detected attacks
@@ -40,9 +40,17 @@
 
 (enable_log) {
 	log {
-		output stdout
-		format json {
-			time_format rfc3339
+		output discard
+		format filter {
+			wrap json
+			fields {
+				logger			delete
+				msg				delete
+				size			delete
+				status			delete
+				resp_headers	delete
+				request			delete
+			}
 		}
 	}
 }
@@ -104,6 +112,7 @@ https://{$GITPOD_DOMAIN} {
 	import enable_log
 	import remove_server_header
 	import ssl_configuration
+	import security_headers
 
 	@workspace_download path /workspace-download*
 	handle @workspace_download {
@@ -148,7 +157,6 @@ https://{$GITPOD_DOMAIN} {
 			base_domain {$GITPOD_DOMAIN}
 		}
 
-		import security_headers
 		import compression
 
 		uri strip_prefix /api
@@ -164,7 +172,6 @@ https://{$GITPOD_DOMAIN} {
 			base_domain {$GITPOD_DOMAIN}
 		}
 
-		import security_headers
 		import compression
 
 		reverse_proxy server.{$KUBE_NAMESPACE}.{$KUBE_DOMAIN}:3000 {
@@ -177,7 +184,6 @@ https://{$GITPOD_DOMAIN} {
 
 	@to_server path /auth/github/callback /auth /auth/* /apps /apps/*
 	handle @to_server {
-		import security_headers
 		import compression
 
 		reverse_proxy server.{$KUBE_NAMESPACE}.{$KUBE_DOMAIN}:3000 {
@@ -187,8 +193,6 @@ https://{$GITPOD_DOMAIN} {
 	}
 
 	handle {
-		import security_headers
-
 		reverse_proxy dashboard.{$KUBE_NAMESPACE}.{$KUBE_DOMAIN}:3001 {
 			import upstream_headers
 			import upstream_connection
