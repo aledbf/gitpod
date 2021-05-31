@@ -1,0 +1,107 @@
+name: Unit tests
+on:
+  push:
+    branches:
+      - 'main'
+      - 'v*'
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  build-go:
+    name: Cache Go dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download leeway
+        run: |
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo chmod +x /usr/local/bin/leeway
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Golang
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.16.4'
+      - name: Restore go build cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
+      - name: Download all Go modules
+        run: |
+          leeway exec --filter-type go -v -- go mod download
+
+  check-go:
+    name: Check Go code
+    runs-on: ubuntu-latest
+    needs:
+      - build-go
+    steps:
+      - name: Download leeway
+        run: |
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo chmod +x /usr/local/bin/leeway
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Golang
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.16.4'
+      - name: Restore go build cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
+      - name: Check for tidyness of go.mod and go.sum
+        run: |
+          leeway exec --filter-type go -v -- go mod tidy -v
+          git diff --exit-code -- .
+
+  test-go:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    needs:
+      - build-go
+    steps:
+      - name: Download leeway
+        run: |
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo chmod +x /usr/local/bin/leeway
+      - name: Download codecov
+        run: |
+          sudo curl -sSL https://codecov.io/bash -o /usr/local/bin/codecov
+          sudo chmod +x /usr/local/bin/codecov
+      - name: Add gitpod user (for tests)
+        run: |
+          sudo addgroup --gid 33333 gitpod
+          sudo useradd  --gid 33333 --create-home --shell /bin/bash node --uid 33333 --gid 33333
+      - name: Create checkout directory
+        run: mkdir -p ~/go/src/github.com/gitpod-io
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Create symlink in GOPATH
+        run: ln -s $(pwd) ~/go/src/github.com/gitpod-io/gitpod
+      - name: Setup Golang
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.16.4'
+      - name: Restore go build cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
+      - name: Run all unit tests
+        run: |
+          for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (eq $n.Type "go")}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
+            COMPONENT_NAME=$(echo $COMPONENT | cut -d: -f1)
+            echo "Testing component ${COMPONENT}"
+            pushd $COMPONENT_NAME
+              if [[ "$COMPONENT" =~ .*docker-up.* ]]; then
+                popd
+                continue
+              fi
+              go test -v -coverprofile=coverage.out ./...
+            popd
+            codecov -F $(echo $COMPONENT_NAME | sed "s#/#-#g") -f $COMPONENT_NAME/coverage.out -i $COMPONENT_NAME -Z || echo 'Codecov upload failed'
+          done

@@ -1,0 +1,19 @@
+coverage:
+  ignore:
+    - "**/node_modules/*"
+  precision: 2
+  round: down
+
+  status:
+    project:
+      default:
+        informational: true
+        target: auto
+    patch:
+      default:
+        informational: true
+        target: auto
+
+comment:
+  layout: "header, diff"
+  behavior: default
