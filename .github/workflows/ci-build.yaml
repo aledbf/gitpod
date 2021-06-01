@@ -122,19 +122,3 @@ jobs:
           parallel -j 6 < tasks
           # upload coverage reports
           codecov -k
-
-  analyze:
-    name: Project analysis
-    runs-on: ubuntu-20.04
-    env:
-      sonar_secret: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: SonarCloud Scan
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
