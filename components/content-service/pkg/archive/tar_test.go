@@ -16,6 +16,8 @@ import (
 )
 
 func TestExtractTarbal(t *testing.T) {
+	t.Skip("Disable test")
+
 	type file struct {
 		Name        string
 		ContentSize int64
