@@ -11,7 +11,7 @@ on:
 jobs:
   build-go:
     name: Cache Go dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Download leeway
         run: |
@@ -23,18 +23,20 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: '1.16.4'
-      - name: Restore go build cache
-        uses: actions/cache@v1
+      - name: go modules cache
+        uses: actions/cache@v2
+        continue-on-error: true
+        id: cache-go-pkg-mod
+        timeout-minutes: 2
         with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
-      - name: Download all Go modules
-        run: |
-          leeway exec --filter-type go -v -- go mod download
+          path: ~/go
+          key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('go.sum') }}
+      - if: steps.cache-go-pkg-mod.outputs.cache-hit != 'true' || steps.cache-go-pkg-mod.outcome == 'failure'
+        run: leeway exec --filter-type go -v -- go mod download
 
   check-go:
     name: Check Go code
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs:
       - build-go
     steps:
@@ -48,11 +50,12 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: '1.16.4'
-      - name: Restore go build cache
-        uses: actions/cache@v1
+      - name: go modules cache
+        uses: actions/cache@v2
+        timeout-minutes: 2
         with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
+          path: ~/go
+          key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('go.sum') }}
       - name: Check for tidyness of go.mod and go.sum
         run: |
           leeway exec --filter-type go -v -- go mod tidy -v
@@ -60,7 +63,7 @@ jobs:
 
   test-go:
     name: Run unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs:
       - build-go
     steps:
@@ -72,10 +75,6 @@ jobs:
         run: |
           sudo curl -sSL https://codecov.io/bash -o /usr/local/bin/codecov
           sudo chmod +x /usr/local/bin/codecov
-      - name: Add gitpod user (for tests)
-        run: |
-          sudo addgroup --gid 33333 gitpod
-          sudo useradd  --gid 33333 --create-home --shell /bin/bash node --uid 33333 --gid 33333
       - name: Create checkout directory
         run: mkdir -p ~/go/src/github.com/gitpod-io
       - name: Checkout code
@@ -86,22 +85,40 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: '1.16.4'
-      - name: Restore go build cache
-        uses: actions/cache@v1
+      - name: go modules cache
+        uses: actions/cache@v2
         with:
-          path: ~/.cache/go-build
-          key: ${{ runner.os }}-go-build-v1-${{ github.run_id }}
+          path: ~/go
+          key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('go.sum') }}
+      - name: build gitpod-cli
+        run: |
+          # TODO: this should not be required
+          cd components/gitpod-cli
+          go build -o gp
+          sudo cp gp /usr/local/bin
+          sudo mkdir -p /workspace/.gitpod
+
+          # install libseccomp
+          sudo apt update
+          sudo apt install -y gperf
+          cd $(mktemp -d)
+          sudo curl -fsSL https://github.com/seccomp/libseccomp/releases/download/v2.5.1/libseccomp-2.5.1.tar.gz | tar xz
+          cd libseccomp-2.5.1 && ./configure && make && sudo make install
+
+          # install kubebuilder test dependencies
+          curl -fsSL https://go.kubebuilder.io/dl/2.3.2/linux/amd64 | tar -xz -C /tmp/
+          sudo mkdir -p /usr/local/kubebuilder
+          sudo mv /tmp/kubebuilder_2.3.2_linux_amd64/* /usr/local/kubebuilder
+
+          # install gnu parallel
+          sudo apt install -y parallel
       - name: Run all unit tests
         run: |
           for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (eq $n.Type "go")}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
             COMPONENT_NAME=$(echo $COMPONENT | cut -d: -f1)
-            echo "Testing component ${COMPONENT}"
-            pushd $COMPONENT_NAME
-              if [[ "$COMPONENT" =~ .*docker-up.* ]]; then
-                popd
-                continue
-              fi
-              go test -v -coverprofile=coverage.out ./...
-            popd
-            codecov -F $(echo $COMPONENT_NAME | sed "s#/#-#g") -f $COMPONENT_NAME/coverage.out -i $COMPONENT_NAME -Z || echo 'Codecov upload failed'
+            echo ".github/workflows/run-test-coverage.sh $COMPONENT_NAME" >> tasks
           done
+          # run tests in parallel
+          parallel -j 6 < tasks
+          # upload coverage reports
+          codecov -k

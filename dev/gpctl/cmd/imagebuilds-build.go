@@ -132,8 +132,9 @@ var imagebuildsBuildCmd = &cobra.Command{
 
 		for {
 			select {
+			//nolint:copylocks
 			case bm := <-buildMessage:
-				log.Print(bm)
+				log.Print(&bm)
 				switch bm.Status {
 				case builder.BuildStatus_done_failure, builder.BuildStatus_done_success:
 					log.Infof("build done: %s", builder.BuildStatus_name[int32(bm.Status)])
