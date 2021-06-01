@@ -13,7 +13,6 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/sirupsen/logrus"
@@ -58,11 +57,6 @@ const (
 	// which might cause workspace container status propagation to fail, which in turn would keep a workspace running indefinitely.
 	ContainerIsGoneAnnotation = "gitpod.io/containerIsGone"
 )
-
-// WorkspaceSupervisorEndpoint produces the supervisor endpoint of a workspace.
-func WorkspaceSupervisorEndpoint(workspaceID, kubernetesNamespace string) string {
-	return fmt.Sprintf("ws-%s-theia.%s.svc:22999", workspaceID, kubernetesNamespace)
-}
 
 // GetOWIFromObject finds the owner, workspace and instance information on a Kubernetes object using labels
 func GetOWIFromObject(pod *metav1.ObjectMeta) logrus.Fields {
