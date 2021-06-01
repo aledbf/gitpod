@@ -19,17 +19,17 @@ import (
 	"sync"
 	"time"
 
-	gitpod "github.com/gitpod-io/gitpod/gitpod-protocol"
-	app "github.com/gitpod-io/gitpod/local-app/api"
-	supervisor "github.com/gitpod-io/gitpod/supervisor/api"
 	"github.com/google/uuid"
 	"github.com/kevinburke/ssh_config"
 	"github.com/prometheus/common/log"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/sirupsen/logrus"
+	gitpod "github.com/gitpod-io/gitpod/gitpod-protocol"
+	app "github.com/gitpod-io/gitpod/local-app/api"
+	supervisor "github.com/gitpod-io/gitpod/supervisor/api"
 )
 
 var (
