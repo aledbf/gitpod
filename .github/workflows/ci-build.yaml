@@ -112,5 +112,6 @@ jobs:
       - name: Run all unit tests
         run: |
           for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (eq $n.Type "go")}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
+            echo "Building $COMPONENT"
             leeway build $COMPONENT
           done
