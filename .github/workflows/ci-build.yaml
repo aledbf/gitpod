@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
       - name: Checkout code
         uses: actions/checkout@v2
@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
       - name: Checkout code
         uses: actions/checkout@v2
@@ -69,16 +69,14 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/9edf20daf0aaaa50a6e248b4401ce7e7aec3fee5/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
-      - name: Download codecov
-        run: |
-          sudo curl -sSL https://codecov.io/bash -o /usr/local/bin/codecov
-          sudo chmod +x /usr/local/bin/codecov
       - name: Create checkout directory
         run: mkdir -p ~/go/src/github.com/gitpod-io
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 10
       - name: Create symlink in GOPATH
         run: ln -s $(pwd) ~/go/src/github.com/gitpod-io/gitpod
       - name: Setup Golang
@@ -109,16 +107,11 @@ jobs:
           curl -fsSL https://go.kubebuilder.io/dl/2.3.2/linux/amd64 | tar -xz -C /tmp/
           sudo mkdir -p /usr/local/kubebuilder
           sudo mv /tmp/kubebuilder_2.3.2_linux_amd64/* /usr/local/kubebuilder
-
-          # install gnu parallel
-          sudo apt install -y parallel
       - name: Run all unit tests
         run: |
+          COVERAGE_OUTPUT=$(mktemp -d -t coverage-XXXXXXXXXXX)
           for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (eq $n.Type "go")}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
-            COMPONENT_NAME=$(echo $COMPONENT | cut -d: -f1)
-            echo ".github/workflows/run-test-coverage.sh $COMPONENT_NAME" >> tasks
+            echo "Building $COMPONENT"
+            leeway --workspace=$PWD build --coverage-output-path=$COVERAGE_OUTPUT $COMPONENT
           done
-          # run tests in parallel
-          parallel -j 6 < tasks
-          # upload coverage reports
-          codecov -k
+          codecov -s $COVERAGE_OUTPUT
