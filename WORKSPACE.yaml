@@ -11,6 +11,7 @@ defaultVariant:
     go:
       lintCommand: ["golangci-lint", "run", "--disable", "govet,errcheck,typecheck,staticcheck", "--allow-parallel-runners"]
       buildFlags: ["-trimpath", "-ldflags='-buildid= -w -s'"]
+      testWithCoverage: true
 
 variants:
 - name: oss
