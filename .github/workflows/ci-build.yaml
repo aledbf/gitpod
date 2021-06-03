@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6812b1fea9ab71ce1fffbc268cd777ce627980/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
       - name: Checkout code
         uses: actions/checkout@v2
@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6812b1fea9ab71ce1fffbc268cd777ce627980/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
       - name: Checkout code
         uses: actions/checkout@v2
@@ -69,7 +69,7 @@ jobs:
     steps:
       - name: Download leeway
         run: |
-          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6cdb46ce22f88e55f5a114f58db2140f63b086/leeway -o /usr/local/bin/leeway
+          sudo curl -sSL https://gist.github.com/aledbf/06ca039e889bbe3c6b06731696d17821/raw/dd6812b1fea9ab71ce1fffbc268cd777ce627980/leeway -o /usr/local/bin/leeway
           sudo chmod +x /usr/local/bin/leeway
       - name: Create checkout directory
         run: mkdir -p ~/go/src/github.com/gitpod-io
@@ -109,9 +109,20 @@ jobs:
           sudo mv /tmp/kubebuilder_2.3.2_linux_amd64/* /usr/local/kubebuilder
       - name: Run all unit tests
         run: |
+          set -x
           COVERAGE_OUTPUT=$(mktemp -d -t coverage-XXXXXXXXXXX)
-          for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (eq $n.Type "go")}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
+          for COMPONENT in $(leeway collect -t '{{ range $n := . }}{{if (and (eq $n.Type "go") (eq ($n.Config.packaging | printf "%v") "app"))}}{{ $n.Metadata.FullName }}{{"\n"}}{{end}}{{end}}');do
+            if [[ "$COMPONENT" =~ .*docker-up.* ]]; then
+                continue
+            fi
+
+            if [[ "$COMPONENT_NAME" == "test" ]]; then
+                continue
+            fi
             echo "Building $COMPONENT"
-            leeway --workspace=$PWD build --coverage-output-path=$COVERAGE_OUTPUT $COMPONENT
+            leeway -v --workspace=$PWD build --coverage-output-path=$COVERAGE_OUTPUT $COMPONENT
           done
-          codecov -s $COVERAGE_OUTPUT
+
+          ls -lat $COVERAGE_OUTPUT
+          curl -s https://codecov.io/bash | bash -s - -s $COVERAGE_OUTPUT
+          # SOURCE_BRANCH=%v SOURCE_COMMIT=%v DOCKER_REPO=%v
